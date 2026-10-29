@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Text-based RPG Remake</title>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script>
+      function drawText(text, x, y, font = "16px Arial", color = "black", align = "left") {
+        ctx.font = font;
+        ctx.fillStyle = color;
+        ctx.textAlign = align; // Options: 'left', 'center', 'right', 'start', 'end'
+
+        ctx.fillText(text, x, y);
+      }
+
+      function drawRectangle(x, y, width, height, fillColor = "blue", strokeColor = "black", lineWidth = 2) {
+        ctx.lineWidth = lineWidth;
+
+        // Draw the filled area
+        if (fillColor) {
+          ctx.fillStyle = fillColor;
+          ctx.fillRect(x, y, width, height);
+        }
+
+        // Draw the outline
+        if (strokeColor) {
+          ctx.strokeStyle = strokeColor;
+          ctx.strokeRect(x, y, width, height);
+        }
+      }
+
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+    </script>
+  </body>
+</html>
