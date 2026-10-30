@@ -6,15 +6,15 @@
   <body>
     <canvas id="canvas"></canvas>
     <script>
-      function drawText(text, x, y, font = "16px Arial", color = "black", align = "left") {
-        ctx.font = font;
+      function drawText(text, x, y, color = "black", align = "center", size = 20) {
+        ctx.font = `${size}px "Courier New", Courier, monospace`;
         ctx.fillStyle = color;
         ctx.textAlign = align; // Options: 'left', 'center', 'right', 'start', 'end'
 
         ctx.fillText(text, x, y);
       }
 
-      function drawRectangle(x, y, width, height, fillColor = "blue", strokeColor = "black", lineWidth = 2) {
+      function drawRect(x, y, width, height, fillColor = "black", strokeColor = "black", lineWidth = 2) {
         ctx.lineWidth = lineWidth;
 
         // Draw the filled area
@@ -30,10 +30,402 @@
         }
       }
 
+      const cellMap = {
+        "#": {
+          name: "grass",
+          color: "rgb(34, 139, 34)",
+        },
+        _: {
+          name: "path",
+          color: "rgb(218, 165, 32)",
+        },
+        S: {
+          name: "spaceship",
+          color: "rgb(220, 220, 220)",
+        },
+        M: {
+          name: "meteor",
+          color: "rgb(139, 69, 19)",
+        },
+        C: {
+          name: "city",
+          color: "rgb(112, 128, 144)",
+        },
+        V: {
+          name: "village",
+          color: "rgb(244, 164, 96)",
+        },
+        T: {
+          name: "town",
+          color: "rgb(205, 133, 63)",
+          interactChance: 1,
+          text: [
+            "It's a dusty town. 'Maybe I should skip this one', you say as an eerie feeling runs down you spine.",
+            "You've heard rumors of outlaws and other various shady figures setting up camp in places like this.",
+            "'But that's just a old tale', you mutter, 'what's the chance of it being true?'. Still, you're not fully convinced.",
+          ],
+          reward: [
+            { name: "gold", min: 1, max: 1, rollChance: 0.2 },
+            { name: "food", min: 1, max: 3, rollChance: 0.5 },
+            { name: "water", min: 1, max: 3, rollChance: 0.5 },
+            { name: "bronze", min: 1, max: 5, rollChance: 0.7 },
+          ],
+          getEnemy: () => {
+            if (r() < 0.1) {
+              return { name: "outlaw", health: random(5, 8), damage: 3, weapon: "pistol" };
+            } else if (r() < 0.5) {
+              return { name: "shaded figure", health: random(3, 6), damage: random(2, 3), weapon: "club" };
+            } else return { name: "coyote", health: random(2, 4), damage: random(1, 2), weapon: "teeth" };
+          },
+        },
+        O: {
+          name: "outpost",
+          color: "rgb(70, 130, 180)",
+          interactChance: 1,
+          text: [
+            "As you approach the lone tower, you hear sounds coming from the inside. The door hangs slightly ajar, and a light breeze carries the smell of death.",
+            "Inside the tower, there are scraps of leather and a few pieces of some type of metal.",
+            "As you try to collect the loot, a wild animal falls down on you from the ceiling.",
+          ],
+          reward: [
+            { name: "bronze", min: 1, max: 3, rollChance: 0.5 },
+            { name: "iron", min: 1, max: 1, rollChance: 0.2 },
+            { name: "leather", min: 2, max: 4, rollChance: 1 },
+          ],
+          getEnemy: () => {
+            return { name: "animal", health: random(2, 4), damage: 1, weapon: "claw" };
+          },
+        },
+        ".": {
+          name: "player",
+          color: "white",
+        },
+        "+": {
+          name: "base",
+          color: "white",
+        },
+      };
+
+      let currentCell;
+
+      function getMapPool() {
+        const totalSquares = 51 * 51 - 1; // 2601 total squares, subtract 1 for the base
+        const mapPool = [];
+
+        // Define the base targets
+        const targets = {
+          S: 1,
+          M: 3,
+          C: 10,
+          V: 50,
+          T: 90,
+          O: 120,
+        };
+
+        // Helper function to get a random count within +/- 10%
+        function getRandomCount(target) {
+          if (target === 0) return 0;
+
+          // 10% down, rounded down
+          let min = Math.floor(target * 0.9);
+          // 10% up, rounded up
+          let max = Math.ceil(target * 1.1);
+
+          // Prevent targets from hitting 0 unless the base target was 0
+          if (min === 0 && target > 0) {
+            min = 1;
+          }
+
+          // Return a random integer between min and max (inclusive)
+          return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // 1. Roll and push the randomized target quantities into the array
+        for (const [type, targetValue] of Object.entries(targets)) {
+          const count = getRandomCount(targetValue);
+          for (let i = 0; i < count; i++) {
+            mapPool.push(type);
+          }
+        }
+
+        // 2. Fill whatever remains of the 2601 squares with "#"
+        while (mapPool.length < totalSquares) {
+          mapPool.push("#");
+        }
+
+        // 3. Shuffle the array (Fisher-Yates Shuffle)
+        for (let i = mapPool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [mapPool[i], mapPool[j]] = [mapPool[j], mapPool[i]];
+        }
+
+        return mapPool; // Flat array of 2601 squares with variable targets
+      }
+
       const canvas = document.getElementById("canvas");
       const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth * 0.9;
+      canvas.height = window.innerHeight * 0.9;
 
-      function loop() {}
+      const map = [];
+      const width = 51;
+      const height = 51;
+
+      let lastMove = 0;
+
+      const keys = {};
+
+      const hasBeenLooted = new Array(width * height).fill(false);
+
+      const enemies = new Array(width * height).fill(false);
+
+      window.addEventListener("keydown", (ev) => {
+        keys[ev.key.toLowerCase()] = true;
+      });
+      window.addEventListener("keyup", (ev) => {
+        keys[ev.key.toLowerCase()] = false;
+      });
+
+      let currentScreen = "map";
+
+      let currentEnemy = null;
+
+      let splashText = "";
+
+      const p = {
+        x: 26,
+        y: 26,
+        health: 5,
+        healthCapacity: 5,
+        water: 7,
+        food: 5,
+        waterCapacity: 7,
+        foodCapacity: 5,
+        inv: [],
+        invSize: 5,
+        weapon: {
+          name: "stick",
+          damage: 1,
+        },
+      };
+
+      const pool = getMapPool();
+      let pushedBase = false;
+      for (let y = 0; y < height; y++) {
+        const row = [];
+        for (let x = 0; x < width; x++) {
+          if (x === Math.ceil(width / 2) && y === Math.ceil(height / 2)) {
+            row.push("+");
+            pushedBase = true;
+          } else {
+            row.push(pool[pushedBase ? y * width + x - 1 : y * width + x]);
+          }
+        }
+        map.push(row);
+      }
+
+      function renderMap() {
+        const yPerRow = Math.floor(canvas.height / (height * 1.1));
+        const xPerSymbol = Math.floor(canvas.width / (height * 1.1));
+        const distPerRow = Math.min(yPerRow, xPerSymbol);
+        for (let i = 0; i < map.length; i++) {
+          const row = map[i];
+          let string = "";
+          for (let j = 0; j < row.length; j++) {
+            let symbol = row[j];
+            if (p.x === j && p.y === i) {
+              symbol = ".";
+            }
+            drawText(symbol, distPerRow * (j + 1), distPerRow * (i + 1), hasBeenLooted[idx(i, j)] ? "gray" : cellMap[symbol].color);
+          }
+        }
+        drawText(
+          `Food: ${p.food}, Water: ${p.water}, Health: ${p.health}, Inventory: [${p.inv.map((item) => `${item.name}: ${item.count}`).join(", ")}]`,
+          (canvas.width * 2) / 3,
+          (canvas.height * 2) / 3,
+          "white",
+        );
+        drawText(splashText, (canvas.width * 2) / 3, canvas.height / 3, "white");
+      }
+
+      function idx(y = p.y, x = p.x) {
+        return y * width + x;
+      }
+
+      function handleInput() {
+        if (currentScreen === "map") {
+          if (performance.now() - lastMove > 100) {
+            lastMove = performance.now();
+            let moved = false;
+            if (keys.w && p.y > 0) {
+              p.y -= 1;
+              moved = true;
+            }
+            if (keys.s && p.y < height - 1) {
+              p.y += 1;
+              moved = true;
+            }
+            if (keys.a && p.x > 0) {
+              p.x -= 1;
+              moved = true;
+            }
+            if (keys.d && p.x < width - 1) {
+              p.x += 1;
+              moved = true;
+            }
+            if (moved) {
+              const spot = map[p.y][p.x];
+              if (spot === "#") {
+                map[p.y][p.x] = "_";
+                p.water -= 1;
+                p.food -= 1;
+              } else if (spot === "_") {
+                p.water -= 1;
+              } else if (spot === "+") {
+                p.water = p.waterCapacity;
+                p.food = p.foodCapacity;
+              }
+              if (Math.random() < cellMap[spot].interactChance && !hasBeenLooted[idx(p.y, p.x)]) {
+                currentScreen = "interact" + spot.toUpperCase();
+              }
+            }
+          }
+        }
+        if (currentScreen.includes("interact") && !currentScreen.includes("enemy")) {
+          currentEnemy = enemies[idx()] ? enemies[idx()] : cellMap[currentScreen.replace("interact", "")].getEnemy();
+          enemies[idx] = structuredClone(currentEnemy);
+
+          if (keys.enter) {
+            keys.enter = false;
+            currentScreen += "enemy";
+          }
+        }
+        if (currentScreen.includes("interact") && currentScreen.includes("enemy")) {
+          if (keys.enter) {
+            keys.enter = false;
+            updateEnemyScreen();
+          }
+        }
+        if (currentScreen === "reward") {
+          if (keys.enter) {
+            keys.enter = false;
+            currentScreen = "map";
+          }
+        }
+      }
+
+      function random(min = 0, max = 1) {
+        return Math.floor(r(min, max));
+      }
+
+      function r(min = 0, max = 1) {
+        return Math.random() * (max - min + 1) + min;
+      }
+
+      function updateEnemyScreen() {
+        currentEnemy.health -= p.weapon.damage;
+        p.health -= currentEnemy.damage;
+        if (p.health <= 0) {
+          resetPlayer();
+          return;
+        }
+        if (currentEnemy.health <= 0) {
+          currentEnemy = null;
+          currentScreen = "reward";
+          let reward = [];
+          const rewardPool = cellMap[currentCell].reward;
+          for (const item of rewardPool) {
+            if (r() < item.rollChance) {
+              if (item.name === "water") {
+                p.water = Math.min(p.waterCapacity, p.water + item.count);
+              } else if (item.name === "food") {
+                p.food = Math.min(p.foodCapacity, p.food + item.count);
+              } else {
+                reward.push({ name: item.name, count: random(item.min, item.max) });
+              }
+            }
+          }
+          if (reward.length + p.inv.length > p.invSize) {
+            reward.splice(p.invSize - p.inv.length);
+            // This isn't really fair, since it'll just remove the things after, but this can be fixed later. For now, just put the most valuable things at the start of the rewards list in the cellMap
+          }
+          currentReward = reward;
+          p.inv.push(...reward);
+          hasBeenLooted[idx(p.y, p.x)] = true;
+        }
+      }
+
+      function renderInteract(type) {
+        if (!type) return;
+        if (type.includes("enemy")) {
+          drawText(currentEnemy.name, canvas.width / 4, (canvas.height * 3) / 6, "white", "center");
+          drawText("Health: " + currentEnemy.health, canvas.width / 4, (canvas.height * 4) / 6, "white", "center");
+          drawText("Damage/hit: " + currentEnemy.damage + ", using weapon " + currentEnemy.weapon, canvas.width / 4, (canvas.height * 5) / 6, "white", "center");
+
+          drawText("You", (canvas.width * 3) / 4, (canvas.height * 3) / 6, "white", "center");
+          drawText("Health: " + p.health, (canvas.width * 3) / 4, (canvas.height * 4) / 6, "white", "center");
+          drawText("Damage/hit: " + p.weapon.damage + ", using weapon " + p.weapon.name, (canvas.width * 3) / 4, (canvas.height * 5) / 6, "white", "center");
+
+          drawText("Press [ENTER] to continue", canvas.width / 2, canvas.height / 4, "white", "center");
+        } else {
+          const text = cellMap[type].text;
+          for (let i = 0; i < text.length; i++) {
+            drawText(text[i], canvas.width / 2, canvas.height / 3 + (canvas.height * 2 * (i + 1)) / ((text.length + 3) * text.length), "white", "center");
+          }
+          drawText("Press [ENTER] to continue", canvas.width / 2, canvas.height / 4, "white", "center");
+        }
+      }
+
+      function renderReward() {
+        drawText("Press [ENTER] to go back to the map", canvas.width / 2, canvas.height / 4, "white", "center");
+        for (let i = 0; i < currentReward.length; i++) {
+          drawText(
+            currentReward[i].count + " " + currentReward[i].name,
+            canvas.width / 2,
+            canvas.height / 3 + (canvas.height * 2 * (i + 1)) / ((currentReward.length + 3) * currentReward.length),
+            "white",
+            "center",
+          );
+        }
+      }
+
+      function render() {
+        drawRect(0, 0, canvas.width, canvas.height, "black", "black");
+        if (currentScreen === "map") renderMap();
+        if (currentScreen.includes("interact")) renderInteract(currentScreen.replace("interact", ""));
+        if (currentScreen === "reward") renderReward();
+      }
+
+      function resetPlayer() {
+        p.x = 26;
+        p.y = 26;
+        p.health = p.healthCapacity;
+        p.food = p.foodCapacity;
+        p.water = p.waterCapacity;
+        p.inv = [];
+        currentEnemy = null;
+        currentScreen = "map";
+      }
+
+      function loop() {
+        currentCell = map[p.y][p.x];
+        switch (currentCell) {
+          case "+":
+            splashText = "Press [ENTER] to enter your base";
+            break;
+          default:
+            splashText = "";
+        }
+
+        if (p.food <= 0 || p.water <= 0) {
+          resetPlayer();
+        }
+        handleInput();
+        render();
+        requestAnimationFrame(loop);
+      }
+
+      loop();
     </script>
   </body>
 </html>
