@@ -451,6 +451,10 @@
 
       function handleInput() {
         if (currentScreen === "map") {
+          if (keys.enter && map[p.y][p.x] === "+") {
+            currentScreen = "base";
+            return;
+          }
           if (performance.now() - lastMove > 100) {
             lastMove = performance.now();
             let moved = false;
@@ -541,6 +545,7 @@
             p.y = oldSpotBeforeMove.y;
           }
         }
+        if (currentScreen === "base" && keys.escape) currentScreen = "map";
       }
 
       function random(min = 0, max = 1) {
@@ -646,7 +651,7 @@
         );
       }
 
-      let selectedOverviewSection = 3;
+      let selectedOverviewSection = 0;
 
       const backpackTypes = [
         { name: "Pouch", owned: true, storageCapacity: 5, resources: [] },
@@ -731,7 +736,6 @@
         const options = allOptions[selectedOverviewSection];
         for (let i = 0; i < options.length; i++) {}
       }
-      currentScreen = "base";
 
       function render() {
         drawRect(0, 0, canvas.width, canvas.height, "black", "black");
