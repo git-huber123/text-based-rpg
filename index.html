@@ -50,10 +50,35 @@
         C: {
           name: "city",
           color: "rgb(112, 128, 144)",
+          reward: (enemy) => {
+            const rewards = [];
+            if (enemy.name === "rogue automaton") rewards.push();
+          },
         },
         V: {
           name: "village",
           color: "rgb(244, 164, 96)",
+          interactChance: 1,
+          text: [
+            "You can hear the bustle and commotion of the villagers as you draw close.",
+            "You don't want any trouble, and just a place to rest, but for some reason, you don't have any hope of that.",
+            "As you enter the town, you remember some tale about how village folk have superstitions about travelers. ",
+            "'Let's just hope they don't care', you think to yourself.",
+          ],
+          reward: (enemy) => {
+            const rewards = [];
+            if (enemy.name === "shaman") rewards.push({ name: "magic staff", type: "weapon", min: 1, max: 1, rollChance: 1 });
+            if (r() < 0.7 || enemy.name === "blacksmith")
+              rewards.push({ name: "iron", min: enemy.name === "blacksmith" ? 3 : 1, max: enemy.name === "blacksmith" ? 7 : 4, type: "inv" });
+            if (r() < 0.4) rewards.push({ name: "gold", min: 1, max: 2, type: "inv" });
+            rewards.push({ name: "leather", min: 1, max: 7, type: "inv" });
+            rewards.push({ name: "bronze", min: 1, max: 5, type: "inv" });
+          },
+          getEnemy: () => {
+            if (r() < 0.25) return { name: "shaman", health: random(7, 11), weapon: "magic staff", damage: weaponMap["magic staff"] };
+            if (r() < 0.7) return { name: "blacksmith", health: random(5, 8), weapon: "hammer", damage: 2 };
+            return { name: "random dude", health: random(4, 6), weapon: "dagger", damage: 1.5 };
+          },
         },
         T: {
           name: "town",
@@ -64,12 +89,14 @@
             "You've heard rumors of outlaws and other various shady figures setting up camp in places like this.",
             "'But that's just a old tale', you mutter, 'what's the chance of it being true?'. Still, you're not fully convinced.",
           ],
-          reward: [
-            { name: "gold", min: 1, max: 1, rollChance: 0.2 },
-            { name: "food", min: 1, max: 3, rollChance: 0.5 },
-            { name: "water", min: 1, max: 3, rollChance: 0.5 },
-            { name: "bronze", min: 1, max: 5, rollChance: 0.7 },
-          ],
+          reward: () => {
+            const rewards = [];
+            if (r() < 0.2) rewards.push({ name: "gold", type: "inv", min: 1, max: 1 });
+            if (r() < 0.5) rewards.push({ name: "food", type: "food", min: 1, max: 3 });
+            if (r() < 0.5) rewards.push({ name: "water", type: "water", min: 1, max: 3 });
+            rewards.push({ name: "bronze", type: "inv", min: 1, max: 5 });
+            return rewards;
+          },
           getEnemy: () => {
             if (r() < 0.1) {
               return { name: "outlaw", health: random(5, 8), damage: 3, weapon: "pistol" };
@@ -87,11 +114,13 @@
             "Inside the tower, there are scraps of leather and a few pieces of some type of metal.",
             "As you try to collect the loot, a wild animal falls down on you from the ceiling.",
           ],
-          reward: [
-            { name: "bronze", min: 1, max: 3, rollChance: 0.5 },
-            { name: "iron", min: 1, max: 1, rollChance: 0.2 },
-            { name: "leather", min: 2, max: 4, rollChance: 1 },
-          ],
+          reward: () => {
+            const rewards = [];
+            if (r() < 0.2) rewards.push({ name: "iron", type: "inv", min: 1, max: 1 });
+            if (r() < 0.5) rewards.push({ name: "bronze", type: "inv", min: 1, max: 3 });
+            rewards.push({ name: "leather", type: "inv", min: 2, max: 4 });
+            return rewards;
+          },
           getEnemy: () => {
             return { name: "animal", health: random(2, 4), damage: 1, weapon: "claw" };
           },
@@ -180,10 +209,10 @@
       const enemies = new Array(width * height).fill(false);
 
       window.addEventListener("keydown", (ev) => {
-        keys[ev.key.toLowerCase()] = true;
+        keys[ev.code.toLowerCase().replace("key", "")] = true;
       });
       window.addEventListener("keyup", (ev) => {
-        keys[ev.key.toLowerCase()] = false;
+        keys[ev.code.toLowerCase().replace("key", "")] = false;
       });
 
       let currentScreen = "map";
@@ -207,6 +236,11 @@
           name: "stick",
           damage: 1,
         },
+      };
+
+      const weaponMap = {
+        stick: 1,
+        "magic staff": 3,
       };
 
       const pool = getMapPool();
@@ -240,7 +274,7 @@
           }
         }
         drawText(
-          `Food: ${p.food}, Water: ${p.water}, Health: ${p.health}, Inventory: [${p.inv.map((item) => `${item.name}: ${item.count}`).join(", ")}]`,
+          `Food: ${p.food}/${p.foodCapacity}, Water: ${p.water}/${p.waterCapacity}, Health: ${p.health}/${p.healthCapacity}, Inventory: [${p.inv.map((item) => `${item.name}: ${item.count}`).join(", ")}]`,
           (canvas.width * 2) / 3,
           (canvas.height * 2) / 3,
           "white",
@@ -274,18 +308,20 @@
               moved = true;
             }
             if (moved) {
+              if (p.water > 0) {
+                p.water -= 1;
+              } else {
+                p.health -= 1;
+              }
               const spot = map[p.y][p.x];
-              if (spot === "#") {
+              if (spot === "#" && p.food > 0) {
                 map[p.y][p.x] = "_";
-                p.water -= 1;
                 p.food -= 1;
-              } else if (spot === "_") {
-                p.water -= 1;
               } else if (spot === "+") {
                 p.water = p.waterCapacity;
                 p.food = p.foodCapacity;
               }
-              if (Math.random() < cellMap[spot].interactChance && !hasBeenLooted[idx(p.y, p.x)]) {
+              if (random() < cellMap[spot].interactChance && !hasBeenLooted[idx(p.y, p.x)]) {
                 currentScreen = "interact" + spot.toUpperCase();
               }
             }
@@ -312,6 +348,16 @@
             currentScreen = "map";
           }
         }
+        if (p.health < p.healthCapacity && currentScreen === "map" && keys.space && p.food > 0) {
+          p.food -= 1;
+          p.health += 1;
+          if (p.health > p.healthCapacity) {
+            const diff = Math.round((p.health - p.healthCapacity) * 2) / 2;
+            p.health = p.healthCapacity;
+            p.food += diff;
+          }
+        }
+        if (currentScreen === "death" && keys.enter) currentScreen = "map";
       }
 
       function random(min = 0, max = 1) {
@@ -330,21 +376,17 @@
           return;
         }
         if (currentEnemy.health <= 0) {
-          currentEnemy = null;
           currentScreen = "reward";
           let reward = [];
-          const rewardPool = cellMap[currentCell].reward;
+          const rewardPool = cellMap[currentCell].reward(currentEnemy);
+          currentEnemy = null;
           for (const item of rewardPool) {
-            if (r() < item.rollChance) {
-              if (item.name === "water") {
-                p.water = Math.min(p.waterCapacity, p.water + item.count);
-              } else if (item.name === "food") {
-                p.food = Math.min(p.foodCapacity, p.food + item.count);
-              } else {
-                reward.push({ name: item.name, count: random(item.min, item.max) });
-              }
-            }
+            if (item.type === "inv") reward.push({ name: item.name, count: random(item.min, item.max) });
+            if (item.type === "weapon" && weaponMap[item.name] > p.weapon.damage) p.weapon = { name: item.name, damage: weaponMap[item.name] };
+            if (item.type === "food") p.food = Math.min(p.foodCapacity, p.food + random(item.min, item.max));
+            if (item.type === "water") p.water = Math.min(p.waterCapacity, p.water + random(item.min, item.max));
           }
+
           if (reward.length + p.inv.length > p.invSize) {
             reward.splice(p.invSize - p.inv.length);
             // This isn't really fair, since it'll just remove the things after, but this can be fixed later. For now, just put the most valuable things at the start of the rewards list in the cellMap
@@ -360,11 +402,11 @@
         if (type.includes("enemy")) {
           drawText(currentEnemy.name, canvas.width / 4, (canvas.height * 3) / 6, "white", "center");
           drawText("Health: " + currentEnemy.health, canvas.width / 4, (canvas.height * 4) / 6, "white", "center");
-          drawText("Damage/hit: " + currentEnemy.damage + ", using weapon " + currentEnemy.weapon, canvas.width / 4, (canvas.height * 5) / 6, "white", "center");
+          drawText("Damage/hit: " + currentEnemy.damage + ", using (a) " + currentEnemy.weapon, canvas.width / 4, (canvas.height * 5) / 6, "white", "center");
 
           drawText("You", (canvas.width * 3) / 4, (canvas.height * 3) / 6, "white", "center");
           drawText("Health: " + p.health, (canvas.width * 3) / 4, (canvas.height * 4) / 6, "white", "center");
-          drawText("Damage/hit: " + p.weapon.damage + ", using weapon " + p.weapon.name, (canvas.width * 3) / 4, (canvas.height * 5) / 6, "white", "center");
+          drawText("Damage/hit: " + p.weapon.damage + ", using (a) " + p.weapon.name, (canvas.width * 3) / 4, (canvas.height * 5) / 6, "white", "center");
 
           drawText("Press [ENTER] to continue", canvas.width / 2, canvas.height / 4, "white", "center");
         } else {
@@ -389,11 +431,16 @@
         }
       }
 
+      function renderDeath() {
+        drawText("You died! Press [ENTER] to respawn at the base. Your inventory will be cleared.", canvas.width / 2, canvas.height / 2, "white", "center");
+      }
+
       function render() {
         drawRect(0, 0, canvas.width, canvas.height, "black", "black");
         if (currentScreen === "map") renderMap();
         if (currentScreen.includes("interact")) renderInteract(currentScreen.replace("interact", ""));
         if (currentScreen === "reward") renderReward();
+        if (currentScreen === "death") renderDeath();
       }
 
       function resetPlayer() {
@@ -404,20 +451,23 @@
         p.water = p.waterCapacity;
         p.inv = [];
         currentEnemy = null;
-        currentScreen = "map";
+        currentScreen = "death";
       }
 
       function loop() {
         currentCell = map[p.y][p.x];
+        splashText = "";
         switch (currentCell) {
           case "+":
             splashText = "Press [ENTER] to enter your base";
             break;
           default:
-            splashText = "";
+            if (p.health < p.healthCapacity) {
+              splashText = "Press [SPACE] to eat some food to heal - you have " + p.food + " food.";
+            }
         }
 
-        if (p.food <= 0 || p.water <= 0) {
+        if (p.health <= 0) {
           resetPlayer();
         }
         handleInput();
