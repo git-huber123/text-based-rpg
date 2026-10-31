@@ -34,25 +34,151 @@
         "#": {
           name: "grass",
           color: "rgb(34, 139, 34)",
+          interactChance: 0.1,
+          getEnemy: () => {
+            if (r() < 0.25) return { name: "rabid dog", damage: random() / 2 + 0.5, health: random(1, 3), weapon: "claw" };
+            if (r() < 0.25) return { name: "small scavenger", damage: random() / 2 + 0.5, health: random(1, 3), weapon: "knife" };
+            if (r() < 0.25) return { name: "flock of birds", damage: random() / 2 + 0.5, health: random(1, 3), weapon: "claw" };
+            return { name: "swarm of bees", damage: random() / 2 + 1, health: random(2, 3), weapon: "stinger" };
+          },
+          reward: (enemy) => {
+            if (enemy.name === "rabid dog") return [{ name: "leather", min: 1, max: 2, type: "inv" }];
+            if (enemy.name === "small scavenger") return [{ name: "iron", min: 1, max: 1, type: "inv" }];
+            if (enemy.name === "flock of birds") return [{ name: "claw", min: 1, max: 3, type: "inv" }];
+            if (enemy.name === "swarm of bees") return [{ name: "honey", min: 1, max: 3, type: "food" }];
+          },
+          text: [
+            "It seems you've been ambused by a wild thing.",
+            "'No matter', you say, 'it's little more than a nusiance'.",
+            "You can't help but feel a little bit scared, however.",
+          ],
+        },
+        X: {
+          name: "cosmic core",
+          color: "rgb(75, 0, 130)",
+          interactChance: 1,
+          isSkippable: true,
+          textForConfirm: "This location has the final boss. DO NOT PROCEED UNLESS YOU ARE READY.",
+          text: [
+            "'This place is the source of all voidite. However, it also has a guardian.', you read off the welcome sign.",
+            "You look up and notice how the sky fades to black, and how you can't hear a thing.",
+            "'Something is giving me a bad feeling about this...', you say.",
+          ],
+          getEnemy: () => {
+            return { name: "void-touched anomaly", weapon: "event horizon", damage: 10, health: 100 };
+          },
+          reward: () => {
+            return [{ name: "voidite ore", min: 10, max: 50, type: "inv" }];
+          },
         },
         _: {
           name: "path",
           color: "rgb(218, 165, 32)",
+          interactChance: -1,
+          reward: (enemy) => {
+            if (enemy.name === "rabid dog") return [{ name: "leather", min: 1, max: 2, type: "inv" }];
+            if (enemy.name === "small scavenger") return [{ name: "iron", min: 1, max: 1, type: "inv" }];
+            if (enemy.name === "flock of birds") return [{ name: "claw", min: 1, max: 3, type: "inv" }];
+            if (enemy.name === "swarm of bees") return [{ name: "honey", min: 1, max: 3, type: "food" }];
+          },
         },
         S: {
           name: "spaceship",
           color: "rgb(220, 220, 220)",
+          interactChance: 1,
+          text: [
+            "As you move closer to the spaceship, you hear a weird hissing sound and see some sort of creature emerging from the ship.",
+            "The hissing sound seems to strike a chord in your body, weakening your muscles and dulling your brain.",
+            "For some reason, you can't stop walking towards it, even though you want to run away.",
+          ],
+          getEnemy: () => {
+            return { name: "alien", weapon: "supersonic blaster", damage: weaponMap["supersonic blaster"], health: random(30, 45) };
+          },
+          reward: () => {
+            const rewards = [];
+            rewards.push({ name: "supersonic blaster", min: 1, max: 1, type: "weapon" });
+            rewards.push({ name: "voidite ore", min: 3, max: 8, type: "inv" });
+            rewards.push({ name: "ruby", min: 5, max: 9, type: "inv" });
+            rewards.push({ name: "emerald", min: 5, max: 11, type: "inv" });
+            rewards.push({ name: "diamond", min: 3, max: 7, type: "inv" });
+            return rewards;
+          },
         },
         M: {
           name: "meteor",
           color: "rgb(139, 69, 19)",
+          interactChance: 1,
+          text: [
+            "You see a crater surrounding some sort of lump. You've heard of these so-called 'balls from space', but never believed in them.",
+            "'I wonder if there's something magical about these', you wonder, as you hear some odd noises coming from the meteor.",
+            "If the tales are true, you know you're getting a whole lot of loot from this place.",
+          ],
+          getEnemy: () => {
+            if (r() < 0.5) return { name: "meteorite goliath", weapon: "giant fists", health: random(15, 20), damage: random(5, 7) };
+            return { name: "scavenger gang", weapon: "sniper rifle", health: random(10, 16), damage: random(3, 5) };
+          },
+          reward: (enemy) => {
+            const rewards = [];
+            if (enemy.name === "meteorite goliath") rewards.push({ name: "meteor ore", min: 4, max: 8, type: "inv" });
+            if (enemy.name === "scavenger gang") rewards.push({ name: "meteor ore", min: 2, max: 4 });
+            rewards.push({ name: "iron", min: 5, max: 13, type: "inv" });
+            rewards.push({ name: "gold", min: 4, max: 9, type: "inv" });
+            rewards.push({ name: "ruby", min: 3, max: 7, type: "inv" });
+            rewards.push({ name: "emerald", min: 4, max: 7, type: "inv" });
+            rewards.push({ name: "diamond", min: 2, max: 5, type: "inv" });
+            if (r() < 0.3) rewards.push({ name: "voidite ore", min: 1, max: 3 });
+            return rewards;
+          },
         },
         C: {
           name: "city",
           color: "rgb(112, 128, 144)",
+          interactChance: 1,
+          text: [
+            "The towering buildings loom above you as you step forward, with each object of the city cast in shadows.",
+            "You remember your mother telling you about a rogue invention gone wrong, that still terrorized a city somewhere.",
+            "You've also heard about vicious gangs that rule cities with fists of steel and hearts of ice.",
+          ],
           reward: (enemy) => {
             const rewards = [];
-            if (enemy.name === "rogue automaton") rewards.push();
+            if (enemy.name === "rogue automaton") rewards.push({ name: "mechanical construct", min: 1, max: 1, type: "weapon" });
+            if (enemy.name === "gang leader") rewards.push({ name: "automatic rifle", min: 1, max: 1, type: "weapon" });
+            if (r() < 0.1) rewards.push({ name: "voidite ore", min: 1, max: 2 });
+            if (r() < 0.4) rewards.push({ name: "diamond", min: 1, max: 3, type: "inv" });
+            if (r() < 0.6) rewards.push({ name: "ruby", min: 1, max: 4, type: "inv" });
+            if (r() < 0.7) rewards.push({ name: "emerald", min: 2, max: 4, type: "inv" });
+            rewards.push({ name: "iron", min: 3, max: 9, type: "inv" });
+            rewards.push({ name: "gold", min: 2, max: 6, type: "inv" });
+            return rewards;
+          },
+          getEnemy: () => {
+            if (r() < 0.3) return { name: "rogue automaton", weapon: "mechanical construct", health: random(12, 17), damage: weaponMap["mechanical construct"] };
+            if (r() < 0.6) return { name: "gang leader", weapon: "automatic rifle", health: random(8, 12), damage: weaponMap["automatic rifle"] };
+            return { name: "wolf pack", weapon: "claw", health: random(5, 9), damage: 2 };
+          },
+        },
+        R: {
+          name: "ruins",
+          color: "rgb(119, 136, 153)",
+          interactChance: 1,
+          text: [
+            "As you step into the ruins, you see crumbled buildings and dusty remnants around you.",
+            "This place was once something great, but time and nature haven't treated it well.",
+            "'Maybe there's still something worth finding in here', you think.",
+          ],
+          getEnemy: () => {
+            if (r() < 0.4) return { name: "wolf pack", weapon: "claw", health: random(5, 9), damage: 2 };
+            if (r() < 0.8) return { name: "armed scavenger", weapon: "pistol", health: random(4, 7), damage: 2 };
+            return { name: "aged guardian", weapon: "staff", health: random(6, 11), damage: weaponMap["staff"] };
+          },
+          reward: (enemy) => {
+            const rewards = [];
+            if (enemy.name === "aged guardian") rewards.push({ name: "staff", type: "weapon", min: 1, max: 1 });
+            rewards.push({ name: "iron", min: 3, max: 8, type: "inv" });
+            if (r() < 0.8) rewards.push({ name: "gold", min: 2, max: 6, type: "inv" });
+            if (r() < 0.4) rewards.push({ name: "emerald", min: 2, max: 4, type: "inv" });
+            if (r() < 0.35) rewards.push({ name: "ruby", min: 1, max: 4, type: "inv" });
+            return rewards;
           },
         },
         V: {
@@ -68,16 +194,19 @@
           reward: (enemy) => {
             const rewards = [];
             if (enemy.name === "shaman") rewards.push({ name: "magic staff", type: "weapon", min: 1, max: 1, rollChance: 1 });
-            if (r() < 0.7 || enemy.name === "blacksmith")
-              rewards.push({ name: "iron", min: enemy.name === "blacksmith" ? 3 : 1, max: enemy.name === "blacksmith" ? 7 : 4, type: "inv" });
-            if (r() < 0.4) rewards.push({ name: "gold", min: 1, max: 2, type: "inv" });
+
+            rewards.push({ name: "iron", min: enemy.name === "blacksmith" ? 3 : 2, max: enemy.name === "blacksmith" ? 7 : 5, type: "inv" });
+            if (r() < 0.2) rewards.push({ name: "ruby", min: 1, max: 1, type: "inv" });
+            if (r() < 0.25) rewards.push({ name: "emerald", min: 1, max: 2, type: "inv" });
+            if (r() < 0.6) rewards.push({ name: "gold", min: 1, max: 2, type: "inv" });
             rewards.push({ name: "leather", min: 1, max: 7, type: "inv" });
             rewards.push({ name: "bronze", min: 1, max: 5, type: "inv" });
+            return rewards;
           },
           getEnemy: () => {
             if (r() < 0.25) return { name: "shaman", health: random(7, 11), weapon: "magic staff", damage: weaponMap["magic staff"] };
             if (r() < 0.7) return { name: "blacksmith", health: random(5, 8), weapon: "hammer", damage: 2 };
-            return { name: "random dude", health: random(4, 6), weapon: "dagger", damage: 1.5 };
+            return { name: "hostile local", health: random(4, 6), weapon: "dagger", damage: 1.5 };
           },
         },
         T: {
@@ -91,6 +220,7 @@
           ],
           reward: () => {
             const rewards = [];
+            if (r() < 0.05) rewards.push({ name: "emerald", min: 1, max: 1, type: "inv" });
             if (r() < 0.2) rewards.push({ name: "gold", type: "inv", min: 1, max: 1 });
             if (r() < 0.5) rewards.push({ name: "food", type: "food", min: 1, max: 3 });
             if (r() < 0.5) rewards.push({ name: "water", type: "water", min: 1, max: 3 });
@@ -200,6 +330,8 @@
       const width = 51;
       const height = 51;
 
+      const visibleCells = new Array(width * height).fill(false);
+
       let lastMove = 0;
 
       const keys = {};
@@ -236,11 +368,22 @@
           name: "stick",
           damage: 1,
         },
+        visibleDistance: 3,
       };
+
+      let oldSpotBeforeMove = [26, 26];
+
+      let textForConfirm = "";
+
+      let hasBeatBoss = false;
 
       const weaponMap = {
         stick: 1,
         "magic staff": 3,
+        "mechanical construct": 6,
+        "automatic rifle": 5,
+        "supersonic blaster": 8,
+        staff: 2,
       };
 
       const pool = getMapPool();
@@ -258,6 +401,13 @@
         map.push(row);
       }
 
+      function checkDistance(y, x) {
+        const dX = p.x - x;
+        const dY = p.y - y;
+        if (dX * dX + dY * dY <= p.visibleDistance * p.visibleDistance) return true;
+        return false;
+      }
+
       function renderMap() {
         const yPerRow = Math.floor(canvas.height / (height * 1.1));
         const xPerSymbol = Math.floor(canvas.width / (height * 1.1));
@@ -266,11 +416,24 @@
           const row = map[i];
           let string = "";
           for (let j = 0; j < row.length; j++) {
-            let symbol = row[j];
+            let symbol = "";
+            if (visibleCells[idx(i, j)]) {
+              symbol = row[j];
+            } else if (checkDistance(i, j)) {
+              visibleCells[idx(i, j)] = true;
+              symbol = row[j];
+            }
             if (p.x === j && p.y === i) {
               symbol = ".";
             }
-            drawText(symbol, distPerRow * (j + 1), distPerRow * (i + 1), hasBeenLooted[idx(i, j)] ? "gray" : cellMap[symbol].color);
+            let color = "black";
+
+            if (hasBeenLooted[idx(i, j)]) {
+              color = symbol === "#" || symbol === "_" || symbol === "." ? cellMap[symbol].color : "gray";
+            } else if (cellMap[symbol]) {
+              color = cellMap[symbol].color;
+            }
+            drawText(symbol, distPerRow * (j + 1), distPerRow * (i + 1), color);
           }
         }
         drawText(
@@ -308,6 +471,7 @@
               moved = true;
             }
             if (moved) {
+              oldSpotBeforeMove = [p.x, p.y];
               if (p.water > 0) {
                 p.water -= 1;
               } else {
@@ -320,9 +484,15 @@
               } else if (spot === "+") {
                 p.water = p.waterCapacity;
                 p.food = p.foodCapacity;
+                p.health = p.healthCapacity;
               }
-              if (random() < cellMap[spot].interactChance && !hasBeenLooted[idx(p.y, p.x)]) {
-                currentScreen = "interact" + spot.toUpperCase();
+              if (r() < cellMap[spot].interactChance && !hasBeenLooted[idx(p.y, p.x)]) {
+                if (cellMap[spot].isSkippable) {
+                  textForConfirm = cellMap[spot].textForConfirm;
+                  currentScreen = "confirm" + spot.toUpperCase();
+                } else {
+                  currentScreen = "interact" + spot.toUpperCase();
+                }
               }
             }
           }
@@ -346,6 +516,7 @@
           if (keys.enter) {
             keys.enter = false;
             currentScreen = "map";
+            hasBeatBoss = false;
           }
         }
         if (p.health < p.healthCapacity && currentScreen === "map" && keys.space && p.food > 0) {
@@ -358,14 +529,26 @@
           }
         }
         if (currentScreen === "death" && keys.enter) currentScreen = "map";
+        if (currentScreen.includes("confirm")) {
+          if (keys.y) {
+            textForConfirm = "";
+            currentScreen = "interact" + currentScreen.replace("confirm", "");
+          }
+          if (keys.n) {
+            textForConfirm = "";
+            currentScreen = "map";
+            p.x = oldSpotBeforeMove.x;
+            p.y = oldSpotBeforeMove.y;
+          }
+        }
       }
 
       function random(min = 0, max = 1) {
-        return Math.floor(r(min, max));
+        return Math.floor(Math.random() * (max - min + 1)) + min;
       }
 
       function r(min = 0, max = 1) {
-        return Math.random() * (max - min + 1) + min;
+        return Math.random() * (max - min) + min;
       }
 
       function updateEnemyScreen() {
@@ -377,6 +560,10 @@
         }
         if (currentEnemy.health <= 0) {
           currentScreen = "reward";
+          if (currentEnemy.name === "void-touched anomaly") {
+            hasBeatBoss = true;
+            alert("You've beat the final boss! Good job!");
+          }
           let reward = [];
           const rewardPool = cellMap[currentCell].reward(currentEnemy);
           currentEnemy = null;
@@ -386,15 +573,30 @@
             if (item.type === "food") p.food = Math.min(p.foodCapacity, p.food + random(item.min, item.max));
             if (item.type === "water") p.water = Math.min(p.waterCapacity, p.water + random(item.min, item.max));
           }
-
-          if (reward.length + p.inv.length > p.invSize) {
-            reward.splice(p.invSize - p.inv.length);
-            // This isn't really fair, since it'll just remove the things after, but this can be fixed later. For now, just put the most valuable things at the start of the rewards list in the cellMap
-          }
           currentReward = reward;
-          p.inv.push(...reward);
+          for (const r of reward) {
+            let foundInvItem = false;
+            for (let i = 0; i < p.inv.length; i++) {
+              const item = p.inv[i];
+              if (item.name === r.name) {
+                p.inv[i].count += r.count;
+                foundInvItem = true;
+              }
+            }
+            if (!foundInvItem) {
+              p.inv.push(r);
+            }
+          }
+          if (p.inv.length > p.invSize) p.inv.length = p.invSize;
+
           hasBeenLooted[idx(p.y, p.x)] = true;
         }
+      }
+
+      function renderConfirm() {
+        drawText(textForConfirm, canvas.width / 2, canvas.height / 3);
+        drawText("Press [Y] to go on", (canvas.width * 3) / 4, (canvas.height * 2) / 3);
+        drawText("Press [N] to go back", canvas.width / 4, (canvas.height * 2) / 3);
       }
 
       function renderInteract(type) {
@@ -420,6 +622,9 @@
 
       function renderReward() {
         drawText("Press [ENTER] to go back to the map", canvas.width / 2, canvas.height / 4, "white", "center");
+        if (hasBeatBoss) {
+          drawText("Congratulations! You've beat the final boss!", canvas.width / 2, canvas.height / 3);
+        }
         for (let i = 0; i < currentReward.length; i++) {
           drawText(
             currentReward[i].count + " " + currentReward[i].name,
@@ -432,8 +637,101 @@
       }
 
       function renderDeath() {
-        drawText("You died! Press [ENTER] to respawn at the base. Your inventory will be cleared.", canvas.width / 2, canvas.height / 2, "white", "center");
+        drawText(
+          "You died! Your body is currently being regenerated at the base. However, your physical haul of loot has been lost, and is likely scavenged. Press [ENTER] to return.",
+          canvas.width / 2,
+          canvas.height / 2,
+          "white",
+          "center",
+        );
       }
+
+      let selectedOverviewSection = 3;
+
+      const backpackTypes = [
+        { name: "Pouch", owned: true, storageCapacity: 5, resources: [] },
+        {
+          name: "Basic backpack",
+          owned: false,
+          storageCapacity: 8,
+          resources: [
+            { name: "leather", amount: 10 },
+            { name: "bronze", amount: 3 },
+          ],
+        },
+        {
+          name: "Iron-reinforced backpack",
+          owned: false,
+          storageCapacity: 11,
+          resources: [
+            { name: "leather", amount: 10 },
+            { name: "bronze", amount: 2 },
+            { name: "iron", amount: 3 },
+          ],
+        },
+        {
+          name: "Gold-studded backpack",
+          owned: false,
+          storageCapacity: 14,
+          resources: [
+            { name: "leather", amount: 10 },
+            { name: "iron", amount: 3 },
+            { name: "gold", amount: 6 },
+          ],
+        },
+        {
+          name: "Ruby-emerald backpack",
+          owned: false,
+          storageCapacity: 20,
+          resources: [
+            { name: "leather", amount: 15 },
+            { name: "gold", amount: 4 },
+            { name: "ruby", amount: 10 },
+            { name: "emerald", amount: 10 },
+          ],
+        },
+        {
+          name: "Diamond-coated backpack",
+          owned: false,
+          storageCapacity: 30,
+          resources: [
+            { name: "leather", amount: 20 },
+            { name: "ruby", amount: 6 },
+            { name: "emerald", amount: 6 },
+            { name: "diamond", amount: 8 },
+          ],
+        },
+        {
+          name: "Endless backpack",
+          owned: false,
+          storageCapacity: 1000,
+          resources: [
+            { name: "leather", amount: 20 },
+            { name: "diamond", amount: 5 },
+            { name: "voidite ore", amount: 5 },
+          ],
+        },
+      ];
+
+      function renderBase() {
+        const h = canvas.height / 100;
+        const w = canvas.width / 100;
+        drawText("Press [ESC] to exit the base", 50 * w, h * 2, "white");
+        drawText("Use [W], [A], [S], [D], and [ENTER] to navigate ([W] and [S] - up and down, [A] and [D] - left and right, [ENTER] - select)", 50 * w, h * 5, "white");
+        drawRect(2 * w, h * 4, 16 * w, 92 * h, "black", "white");
+        for (let i = 0; i < 5; i++) {
+          let strokeWidth = 2;
+          if (selectedOverviewSection === i) strokeWidth *= 4;
+          const text = ["Storage capacity", "Food capacity", "Water capacity", "Health capacity", "Weapon upgrades"];
+
+          drawRect(3 * w, h * 6 + 18 * h * i, 14 * w, 16 * h, "black", "white", strokeWidth);
+          drawText(text[i], (14 / 2) * w + 3 * w, 18 * h * i + 14 * h, "white", "center", strokeWidth === 2 ? 20 : 30);
+        }
+        const allOptions = [backpackTypes];
+        const options = allOptions[selectedOverviewSection];
+        for (let i = 0; i < options.length; i++) {}
+      }
+      currentScreen = "base";
 
       function render() {
         drawRect(0, 0, canvas.width, canvas.height, "black", "black");
@@ -441,6 +739,8 @@
         if (currentScreen.includes("interact")) renderInteract(currentScreen.replace("interact", ""));
         if (currentScreen === "reward") renderReward();
         if (currentScreen === "death") renderDeath();
+        if (currentScreen === "confirm") renderConfirm();
+        if (currentScreen === "base") renderBase();
       }
 
       function resetPlayer() {
