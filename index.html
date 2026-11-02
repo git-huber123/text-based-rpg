@@ -124,7 +124,7 @@
           reward: (enemy) => {
             const rewards = [];
             if (enemy.name === "meteorite goliath") rewards.push({ name: "meteor ore", min: 4, max: 8, type: "inv" });
-            if (enemy.name === "scavenger gang") rewards.push({ name: "meteor ore", min: 2, max: 4 });
+            if (enemy.name === "scavenger gang") rewards.push({ name: "meteor ore", min: 2, max: 4, type: "inv" });
             rewards.push({ name: "iron", min: 5, max: 13, type: "inv" });
             rewards.push({ name: "gold", min: 4, max: 9, type: "inv" });
             rewards.push({ name: "ruby", min: 3, max: 7, type: "inv" });
@@ -147,7 +147,7 @@
             const rewards = [];
             if (enemy.name === "rogue automaton") rewards.push({ name: "mechanical construct", min: 1, max: 1, type: "weapon" });
             if (enemy.name === "gang leader") rewards.push({ name: "automatic rifle", min: 1, max: 1, type: "weapon" });
-            if (r() < 0.1) rewards.push({ name: "voidite ore", min: 1, max: 2 });
+            if (r() < 0.1) rewards.push({ name: "voidite ore", min: 1, max: 2, type: "inv" });
             if (r() < 0.4) rewards.push({ name: "diamond", min: 1, max: 3, type: "inv" });
             if (r() < 0.6) rewards.push({ name: "ruby", min: 1, max: 4, type: "inv" });
             if (r() < 0.7) rewards.push({ name: "emerald", min: 2, max: 4, type: "inv" });
@@ -368,10 +368,7 @@
         food: 5,
         waterCapacity: 7,
         foodCapacity: 5,
-        inv: [
-          { name: "leather", count: 10 },
-          { name: "bronze", count: 3 },
-        ],
+        inv: [],
         invSize: 5,
         weapon: {
           name: "stick",
@@ -380,7 +377,7 @@
         visibleDistance: 3,
       };
 
-      let oldSpotBeforeMove = [26, 26];
+      let oldSpotBeforeMove = { x: 26, y: 26 };
 
       let textForConfirm = "";
 
@@ -476,23 +473,26 @@
             lastMove = performance.now();
             let moved = false;
             if (keys.w && p.y > 0) {
+              oldSpotBeforeMove = { x: p.x, y: p.y };
               p.y -= 1;
               moved = true;
             }
             if (keys.s && p.y < height - 1) {
+              oldSpotBeforeMove = { x: p.x, y: p.y };
               p.y += 1;
               moved = true;
             }
             if (keys.a && p.x > 0) {
+              oldSpotBeforeMove = { x: p.x, y: p.y };
               p.x -= 1;
               moved = true;
             }
             if (keys.d && p.x < width - 1) {
+              oldSpotBeforeMove = { x: p.x, y: p.y };
               p.x += 1;
               moved = true;
             }
             if (moved) {
-              oldSpotBeforeMove = [p.x, p.y];
               if (p.water > 0) {
                 p.water -= 1;
               } else {
@@ -521,7 +521,7 @@
         }
         if (currentScreen.includes("interact") && !currentScreen.includes("enemy")) {
           currentEnemy = enemies[idx()] ? enemies[idx()] : cellMap[currentScreen.replace("interact", "")].getEnemy();
-          enemies[idx] = structuredClone(currentEnemy);
+          enemies[idx()] = structuredClone(currentEnemy);
 
           if (keys.enter) {
             keys.enter = false;
@@ -540,6 +540,13 @@
             currentScreen = "map";
             hasBeatBoss = false;
           }
+          if (keys.a && selectedRewardSection === "inv" && selectedRewartInvItem > 0) selectedRewardInvItem -= 1;
+          if (keys.a && selectedRewardSection === "reward" && selectedRewardItem > 0) selectedRewardItem -= 1;
+          if (keys.d && selectedRewardSection === "inv" && selectedRewartInvItem > 0) selectedRewardInvItem += 1;
+          if (keys.d && selectedRewardSection === "reward" && selectedRewardItem > 0) selectedRewardItem += 1;
+
+          if (keys.w && selectedRewardSection === "inv") selectedRewardSection = "reward";
+          if (keys.s && selectedRewardSection === "reward") selectedRewardSection = "inv";
         }
         if (p.health < p.healthCapacity && currentScreen === "map" && keys.space && p.food > 0) {
           p.food -= 1;
@@ -625,7 +632,7 @@
       }
 
       function handleBuy(sec, type) {
-        let resources = allOptions[sec][type].resources;
+        let resources = structuredClone(allOptions[sec][type].resources);
         let fakeInv = structuredClone(p.inv);
         let fakeBaseInv = structuredClone(baseInv);
         for (let i = 0; i < fakeInv.length; i++) {
@@ -677,6 +684,9 @@
           case 4:
             p.weapon = { name: upgrade.name, damage: weaponMap[upgrade.name] };
             break;
+          case 5:
+            baseInvSize = upgrade.capacity;
+            break;
         }
       }
 
@@ -698,6 +708,9 @@
           case 4:
             p.weapon = { name: upgrade.name, damage: weaponMap[upgrade.name] };
             break;
+          case 5:
+            baseInvSize = upgrade.capacity;
+            break;
         }
       }
 
@@ -717,39 +730,27 @@
           return;
         }
         if (currentEnemy.health <= 0) {
+          currentReward = [];
           currentScreen = "reward";
           if (currentEnemy.name === "void-touched anomaly") {
             hasBeatBoss = true;
             alert("You've beat the final boss! Good job!");
           }
-          let reward = [];
           const rewardPool = cellMap[currentCell].reward(currentEnemy);
           currentEnemy = null;
           for (const item of rewardPool) {
-            if (item.type === "inv") reward.push({ name: item.name, count: random(item.min, item.max) });
+            const count = random(item.min, item.max);
+            if (item.type === "inv") currentReward.push({ name: item.name, count: count });
             if (item.type === "weapon" && weaponMap[item.name] > p.weapon.damage) p.weapon = { name: item.name, damage: weaponMap[item.name] };
             if (item.type === "food") p.food = Math.min(p.foodCapacity, p.food + random(item.min, item.max));
             if (item.type === "water") p.water = Math.min(p.waterCapacity, p.water + random(item.min, item.max));
           }
-          currentReward = reward;
-          for (const r of reward) {
-            let foundInvItem = false;
-            for (let i = 0; i < p.inv.length; i++) {
-              const item = p.inv[i];
-              if (item.name === r.name) {
-                p.inv[i].count += r.count;
-                foundInvItem = true;
-              }
-            }
-            if (!foundInvItem) {
-              p.inv.push(r);
-            }
-          }
-          if (p.inv.length > p.invSize) p.inv.length = p.invSize;
 
           hasBeenLooted[idx(p.y, p.x)] = true;
         }
       }
+
+      let currentReward = [];
 
       function renderConfirm() {
         drawText(textForConfirm, canvas.width / 2, canvas.height / 3);
@@ -781,18 +782,48 @@
       function renderReward() {
         drawText("Press [ENTER] to go back to the map", canvas.width / 2, canvas.height / 4, "white", "center");
         if (hasBeatBoss) {
-          drawText("Congratulations! You've beat the final boss!", canvas.width / 2, canvas.height / 3);
+          drawText("Congratulations! You've beat the final boss!", canvas.width / 2, h * 5);
         }
+        // 8 items per row, each item gets 10w width and 1w padding, starts at 5w
+        const len = currentReward.length;
+        const rows = Math.ceil(len / 8);
+        let length = 10 * w;
+        let height = 10 * h;
+        let padding = w;
+
         for (let i = 0; i < currentReward.length; i++) {
+          const row = Math.floor(i / 8);
+          const item = currentReward[i];
+          let sw = selectedRewardItem === i ? 8 : 2;
+          drawRect(5 * w + (length + padding) * (i - (row - 1) * 8), 25 * h + height * row, length, height, "black", "white", sw);
           drawText(
-            currentReward[i].count + " " + currentReward[i].name,
-            canvas.width / 2,
-            canvas.height / 3 + (canvas.height * 2 * (i + 1)) / ((currentReward.length + 3) * currentReward.length),
+            item.count + " " + item.name,
+            5 * w + (length + padding) * (i - (row - 1) * 8) + (length + padding) / 2,
+            25 * h + height * row + (height / 2) * row,
             "white",
             "center",
+            sw === 2 ? 20 : 60,
+          );
+        }
+        for (let i = 0; i < p.inv.length; i++) {
+          const row = Math.floor(i / 8);
+          const item = p.inv[i];
+          let sw = selectedRewardItem === i ? 8 : 2;
+          drawRect(5 * w + (length + padding) * (i - (row - 1) * 8), 50 * h + height * row, length, height, "black", "white", sw);
+          drawText(
+            item.count + " " + item.name,
+            5 * w + (length + padding) * (i - (row - 1) * 8) + (length + padding) / 2,
+            50 * h + height * row + (height / 2) * row,
+            "white",
+            "center",
+            sw === 2 ? 20 : 60,
           );
         }
       }
+
+      let selectedRewardItem = 0;
+      let selectedRewardInvItem = 0;
+      let selectedRewardSection = "inv";
 
       function renderDeath() {
         drawText(
@@ -810,6 +841,7 @@
       let lastSelectionChangeTime = performance.now();
 
       let baseInv = [];
+      let baseInvSize = 10;
 
       const backpackTypes = [
         { name: "Pouch", owned: true, capacity: 5, resources: [] },
@@ -1144,26 +1176,66 @@
           owned: false,
           capacity: 15,
           resources: [
-            { name: "iron", amount: 5 },
-            { name: "bronze", amount: 5 },
+            { name: "iron", count: 5 },
+            { name: "bronze", count: 5 },
           ],
         },
         {
-          name: "reinforced vault",
+          name: "plated safe",
           owned: false,
           capacity: 25,
           resources: [
-            { name: "gold", amount: 3 },
-            { name: "iron", amount: 10 },
-            { name: "bronze", amount: 10 },
+            { name: "gold", count: 3 },
+            { name: "iron", count: 10 },
+            { name: "bronze", count: 10 },
           ],
         },
         {
           name: "rare metal depository",
+          owned: false,
+          capacity: 40,
+          resources: [
+            { name: "ruby", count: 3 },
+            { name: "emerald", count: 5 },
+            { name: "iron", count: 15 },
+            { name: "bronze", count: 10 },
+          ],
+        },
+        {
+          name: "diamond-reinforced vault",
+          owned: false,
+          capacity: 75,
+          resources: [
+            { name: "diamond", count: 3 },
+            { name: "ruby", count: 5 },
+            { name: "emerald", count: 8 },
+            { name: "iron", count: 20 },
+            { name: "bronze", count: 15 },
+          ],
+        },
+        {
+          name: "interdimensional storage vault",
+          owned: false,
+          capacity: 250,
+          resources: [
+            { name: "voidite ore", count: 20 },
+            { name: "diamond", count: 5 },
+            { name: "ruby", count: 8 },
+            { name: "emerald", count: 10 },
+            { name: "iron", count: 30 },
+            { name: "bronze", count: 30 },
+          ],
         },
       ];
 
-      const typeToName = ["Gives you an inventory size of {X} items", "Lets you store {X} food", "Lets you store {X} water", "Gives you {X} health", "Does {X} damage"];
+      const typeToName = [
+        "Gives you an inventory size of {X} items",
+        "Lets you store {X} food",
+        "Lets you store {X} water",
+        "Gives you {X} health",
+        "Does {X} damage",
+        "Lets you store {X} items in the base",
+      ];
 
       const allOptions = [backpackTypes, foodTypes, waterTypes, healthTypes, weaponTypes, baseStorageTypes];
 
@@ -1174,7 +1246,7 @@
       function renderUpgrade() {
         drawText("Press [ESC] to return to the main base menu, use [W], [A], [S], [D], and [ENTER] to navigate", 50 * w, h * 2, "white");
         drawRect(2 * w, h * 4, 16 * w, 92 * h, "black", "white");
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < allOptions.length; i++) {
           let strokeWidth = 2;
           if (selectedUpgradeSection === i) strokeWidth *= 4;
           const text = ["Storage capacity", "Food capacity", "Water capacity", "Health capacity", "Weapon upgrades"];
@@ -1226,7 +1298,7 @@
         if (currentScreen.includes("interact")) renderInteract(currentScreen.replace("interact", ""));
         if (currentScreen === "reward") renderReward();
         if (currentScreen === "death") renderDeath();
-        if (currentScreen === "confirm") renderConfirm();
+        if (currentScreen === "confirmX") renderConfirm();
         if (currentScreen === "base") renderBase();
         if (currentScreen === "upgrade") renderUpgrade();
       }
