@@ -368,7 +368,10 @@
         food: 5,
         waterCapacity: 7,
         foodCapacity: 5,
-        inv: [],
+        inv: [
+          { name: "bronze", count: 3 },
+          { name: "leather", count: 1 },
+        ],
         invSize: 5,
         weapon: {
           name: "stick",
@@ -540,7 +543,7 @@
             keys.enter = false;
             currentScreen = "map";
             hasBeatBoss = false;
-            simplifyInv(p.inv);
+            p.inv = simplifyInv(p.inv);
           }
           if (keys.space) {
             if (totalCount(p.inv) + currentReward[selectedRewardItem].count <= p.invSize) {
@@ -563,6 +566,60 @@
 
           if (keys.w && selectedRewardSection === "inv") selectedRewardSection = "reward";
           if (keys.s && selectedRewardSection === "reward") selectedRewardSection = "inv";
+        }
+        if (currentScreen === "baseinv" && performance.now() - lastMove > 100) {
+          lastMove = performance.now();
+          if (keys.enter) {
+            keys.enter = false;
+            currentScreen = "base";
+            p.inv = simplifyInv(p.inv);
+            baseInv = simplifyInv(baseInv);
+          }
+          if (keys.space) {
+            let item = selectedBaseInvSection === "base" ? baseInv[selectedBaseItem] : p.inv[selectedBaseItem];
+            if (selectedBaseInvSection === "inv" && totalCount(baseInv) < baseInvSize) {
+              const count = totalCount(baseInv);
+              if (count + item.count <= baseInvSize) {
+                baseInv.push(structuredClone(item));
+                p.inv.splice(selectedBaseItem, 1);
+              } else {
+                let temp = structuredClone(item);
+                let overflow = count + temp.count - baseInvSize;
+                item.count -= overflow;
+                temp.count = overflow;
+                baseInv.push(temp);
+              }
+            }
+
+            if (selectedBaseInvSection === "base" && totalCount(p.inv) < p.invSize) {
+              const count = totalCount(p.inv);
+              if (count + item.count <= p.invSize) {
+                p.inv.push(structuredClone(item));
+                baseInv.splice(selectedBaseItem, 1);
+              } else {
+                let temp = structuredClone(item);
+                let overflow = count + temp.count - p.invSize;
+                item.count -= overflow;
+                temp.count = overflow;
+                p.inv.push(temp);
+              }
+            }
+            p.inv = simplifyInv(p.inv);
+            baseInv = simplifyInv(baseInv);
+          }
+          if (keys.a && selectedBaseInvSection === "base" && selectedBaseItem > 0) selectedBaseItem -= 1;
+          if (keys.a && selectedBaseInvSection === "inv" && selectedBaseItem > 0) selectedBaseItem -= 1;
+          if (keys.d && selectedBaseInvSection === "base" && selectedBaseItem < baseInv.length - 1) selectedBaseItem += 1;
+          if (keys.d && selectedBaseInvSection === "inv" && selectedBaseItem < p.inv.length - 1) selectedBaseItem += 1;
+
+          if (keys.s && selectedBaseInvSection === "inv") {
+            selectedBaseInvSection = "base";
+            selectedBaseItem = Math.min(baseInv.length - 1, selectedBaseItem);
+          }
+          if (keys.w && selectedBaseInvSection === "base") {
+            selectedBaseInvSection = "inv";
+            selectedBaseItem = Math.min(baseInv.length - 1, selectedBaseItem);
+          }
         }
         if (p.health < p.healthCapacity && currentScreen === "map" && keys.space && p.food > 0) {
           p.food -= 1;
@@ -638,6 +695,7 @@
           }
           if (keys.enter && performance.now() - lastSelectionChangeTime > 100) {
             currentScreen = baseOptions[selectedBaseOption].name;
+            lastMove = performance.now();
             lastSelectionChangeTime = performance.now();
           }
           if (keys.escape && performance.now() - lastSelectionChangeTime > 100) {
@@ -646,7 +704,6 @@
           }
         }
       }
-
       function totalCount(array = p.inv) {
         return array.reduce((sum, item) => sum + item.count, 0);
       }
@@ -672,7 +729,7 @@
             const resource = resources[j];
             if (item.count >= resource.count && item.name === resource.name) {
               fakeBaseInv[i].count -= resource.count;
-              resoures.splice(j, 1);
+              resources.splice(j, 1);
               break;
             }
           }
@@ -882,7 +939,10 @@
       let selectedSection = "section";
       let lastSelectionChangeTime = performance.now();
 
-      let baseInv = [];
+      let baseInv = [
+        { name: "bronze", count: 3 },
+        { name: "leather", count: 1 },
+      ];
       let baseInvSize = 10;
 
       const backpackTypes = [
@@ -1334,6 +1394,55 @@
       const h = canvas.height / 100;
       const w = canvas.width / 100;
 
+      let selectedBaseInvSection = "inv";
+      let selectedBaseItem = 0;
+
+      function renderBaseInv() {
+        drawText(
+          "Press [ENTER] to go back to the map, use [W][A][S][D] to rearrange your inv to move things in and out of the base",
+          canvas.width / 2,
+          canvas.height / 4,
+          "white",
+          "center",
+        );
+
+        // 8 items per row, each item gets 10w width and 1w padding, starts at 5w
+        const len = p.inv.length;
+        const rows = Math.ceil(len / 8);
+        let length = 10 * w;
+        let height = 10 * h;
+        let padding = w;
+
+        for (let i = 0; i < p.inv.length; i++) {
+          const row = Math.ceil(i / 8) === i / 8 ? i / 8 + 1 : Math.ceil(i / 8);
+          const item = p.inv[i];
+          let sw = selectedBaseItem === i && selectedBaseInvSection === "inv" ? 8 : 2;
+          drawRect(5 * w + (length + padding) * (i - (row - 1) * 8), 25 * h + height * row, length, height, "black", "white", sw);
+          drawText(
+            item.count + " " + item.name,
+            5 * w + (length + padding) * (i - (row - 1) * 8) + (length + padding) / 2,
+            25 * h + height * row + (height / 2) * row,
+            "white",
+            "center",
+            sw === 2 ? 20 : 30,
+          );
+        }
+        for (let i = 0; i < baseInv.length; i++) {
+          const row = Math.ceil(i / 8) === i / 8 ? i / 8 + 1 : Math.ceil(i / 8);
+          const item = baseInv[i];
+          let sw = selectedBaseItem === i && selectedBaseInvSection === "base" ? 8 : 2;
+          drawRect(5 * w + (length + padding) * (i - (row - 1) * 8), 50 * h + height * row, length, height, "black", "white", sw);
+          drawText(
+            item.count + " " + item.name,
+            5 * w + (length + padding) * (i - (row - 1) * 8) + (length + padding) / 2,
+            50 * h + height * row + (height / 2) * row,
+            "white",
+            "center",
+            sw === 2 ? 20 : 60,
+          );
+        }
+      }
+
       function render() {
         drawRect(0, 0, canvas.width, canvas.height, "black", "black");
         if (currentScreen === "map") renderMap();
@@ -1343,6 +1452,7 @@
         if (currentScreen === "confirmX") renderConfirm();
         if (currentScreen === "base") renderBase();
         if (currentScreen === "upgrade") renderUpgrade();
+        if (currentScreen === "baseinv") renderBaseInv();
       }
 
       function resetPlayer() {
