@@ -534,16 +534,32 @@
             updateEnemyScreen();
           }
         }
-        if (currentScreen === "reward") {
+        if (currentScreen === "reward" && performance.now() - lastMove > 100) {
+          lastMove = performance.now();
           if (keys.enter) {
             keys.enter = false;
             currentScreen = "map";
             hasBeatBoss = false;
+            simplifyInv(p.inv);
           }
-          if (keys.a && selectedRewardSection === "inv" && selectedRewartInvItem > 0) selectedRewardInvItem -= 1;
+          if (keys.space) {
+            if (totalCount(p.inv) + currentReward[selectedRewardItem].count <= p.invSize) {
+              p.inv.push(currentReward[selectedRewardItem]);
+              currentReward.splice(selectedRewardItem, 1);
+            } else if (totalCount(p.inv) < p.invSize) {
+              let temp = structuredClone(currentReward[selectedRewardItem]);
+              let amount = p.invSize - totalCount(p.inv);
+              temp.count = amount;
+              p.inv.push(temp);
+              currentReward[selectedRewardItem].count -= amount;
+            } else {
+              [p.inv[selectedRewardInvItem], currentReward[selectedRewardItem]] = [currentReward[selectedRewardItem], p.inv[selectedRewardInvItem]];
+            }
+          }
+          if (keys.a && selectedRewardSection === "inv" && selectedRewardInvItem > 0) selectedRewardInvItem -= 1;
           if (keys.a && selectedRewardSection === "reward" && selectedRewardItem > 0) selectedRewardItem -= 1;
-          if (keys.d && selectedRewardSection === "inv" && selectedRewartInvItem > 0) selectedRewardInvItem += 1;
-          if (keys.d && selectedRewardSection === "reward" && selectedRewardItem > 0) selectedRewardItem += 1;
+          if (keys.d && selectedRewardSection === "inv" && selectedRewardInvItem < p.inv.length - 1) selectedRewardInvItem += 1;
+          if (keys.d && selectedRewardSection === "reward" && selectedRewardItem < currentReward.length - 1) selectedRewardItem += 1;
 
           if (keys.w && selectedRewardSection === "inv") selectedRewardSection = "reward";
           if (keys.s && selectedRewardSection === "reward") selectedRewardSection = "inv";
@@ -631,6 +647,10 @@
         }
       }
 
+      function totalCount(array = p.inv) {
+        return array.reduce((sum, item) => sum + item.count, 0);
+      }
+
       function handleBuy(sec, type) {
         let resources = structuredClone(allOptions[sec][type].resources);
         let fakeInv = structuredClone(p.inv);
@@ -688,6 +708,22 @@
             baseInvSize = upgrade.capacity;
             break;
         }
+      }
+
+      function simplifyInv(inv) {
+        const totals = {};
+        for (let i = 0; i < inv.length; i++) {
+          const item = inv[i];
+          if (totals[item.name]) {
+            totals[item.name] += item.count;
+          } else {
+            totals[item.name] = item.count;
+          }
+        }
+        return Object.entries(totals).map(([name, count]) => ({
+          name: name,
+          count: count,
+        }));
       }
 
       function select(sec, type) {
@@ -780,7 +816,13 @@
       }
 
       function renderReward() {
-        drawText("Press [ENTER] to go back to the map", canvas.width / 2, canvas.height / 4, "white", "center");
+        drawText(
+          "Press [ENTER] to go back to the map, use [W][A][S][D] to rearrange your inventory to pick up wanted rewards, space to move items",
+          canvas.width / 2,
+          canvas.height / 4,
+          "white",
+          "center",
+        );
         if (hasBeatBoss) {
           drawText("Congratulations! You've beat the final boss!", canvas.width / 2, h * 5);
         }
@@ -792,7 +834,7 @@
         let padding = w;
 
         for (let i = 0; i < currentReward.length; i++) {
-          const row = Math.floor(i / 8);
+          const row = Math.ceil(i / 8) === i / 8 ? i / 8 + 1 : Math.ceil(i / 8);
           const item = currentReward[i];
           let sw = selectedRewardItem === i ? 8 : 2;
           drawRect(5 * w + (length + padding) * (i - (row - 1) * 8), 25 * h + height * row, length, height, "black", "white", sw);
@@ -802,13 +844,13 @@
             25 * h + height * row + (height / 2) * row,
             "white",
             "center",
-            sw === 2 ? 20 : 60,
+            sw === 2 ? 20 : 30,
           );
         }
         for (let i = 0; i < p.inv.length; i++) {
-          const row = Math.floor(i / 8);
+          const row = Math.ceil(i / 8) === i / 8 ? i / 8 + 1 : Math.ceil(i / 8);
           const item = p.inv[i];
-          let sw = selectedRewardItem === i ? 8 : 2;
+          let sw = selectedRewardInvItem === i ? 8 : 2;
           drawRect(5 * w + (length + padding) * (i - (row - 1) * 8), 50 * h + height * row, length, height, "black", "white", sw);
           drawText(
             item.count + " " + item.name,
