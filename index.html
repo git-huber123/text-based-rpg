@@ -130,7 +130,7 @@
             rewards.push({ name: "ruby", min: 3, max: 7, type: "inv" });
             rewards.push({ name: "emerald", min: 4, max: 7, type: "inv" });
             rewards.push({ name: "diamond", min: 2, max: 5, type: "inv" });
-            if (r() < 0.3) rewards.push({ name: "voidite ore", min: 1, max: 3 });
+            if (r() < 0.3) rewards.push({ name: "voidite ore", min: 1, max: 3, type: "inv" });
             return rewards;
           },
         },
@@ -281,6 +281,7 @@
           S: 1,
           M: 3,
           C: 10,
+          R: 30,
           V: 50,
           T: 90,
           O: 120,
@@ -311,6 +312,8 @@
             mapPool.push(type);
           }
         }
+
+        mapPool.push("X");
 
         // 2. Fill whatever remains of the 2601 squares with "#"
         while (mapPool.length < totalSquares) {
@@ -351,6 +354,10 @@
       });
       window.addEventListener("keyup", (ev) => {
         keys[ev.code.toLowerCase().replace("key", "")] = false;
+      });
+
+      window.addEventListener("blur", () => {
+        for (const k in keys) keys[k] = false;
       });
 
       let currentScreen = "map";
@@ -475,6 +482,7 @@
           if (performance.now() - lastMove > 100) {
             lastMove = performance.now();
             let moved = false;
+            oldSpotBeforeMove = { x: p.x, y: p.y };
             if (keys.w && p.y > 0) {
               oldSpotBeforeMove = { x: p.x, y: p.y };
               p.y -= 1;
@@ -538,6 +546,9 @@
           }
         }
         if (currentScreen === "reward" && performance.now() - lastMove > 100) {
+          if (selectedRewardItem >= currentReward.length) selectedRewardItem = 0;
+          if (selectedRewardInvItem >= p.inv.length) selectedRewardInvItem = 0;
+
           lastMove = performance.now();
           if (keys.enter) {
             keys.enter = false;
@@ -545,7 +556,7 @@
             hasBeatBoss = false;
             p.inv = simplifyInv(p.inv);
           }
-          if (keys.space) {
+          if (keys.space && currentReward.length > 0) {
             if (totalCount(p.inv) + currentReward[selectedRewardItem].count <= p.invSize) {
               p.inv.push(currentReward[selectedRewardItem]);
               currentReward.splice(selectedRewardItem, 1);
@@ -556,7 +567,19 @@
               p.inv.push(temp);
               currentReward[selectedRewardItem].count -= amount;
             } else {
-              [p.inv[selectedRewardInvItem], currentReward[selectedRewardItem]] = [currentReward[selectedRewardItem], p.inv[selectedRewardInvItem]];
+              const temp = structuredClone(p.inv);
+              temp[selectedRewardInvItem].count = currentReward[selectedRewardItem].count;
+              if (totalCount(temp) > p.invSize) {
+                const oldItem = structuredClone(p.inv[selectedRewardInvItem]);
+                temp[selectedRewardInvItem].count = 0;
+                const availableSpace = p.invSize - totalCount(temp);
+                p.inv[selectedRewardInvItem].name = currentReward[selectedRewardItem].name;
+                p.inv[selectedRewardInvItem].count = availableSpace;
+                currentReward[selectedRewardItem].count -= availableSpace;
+                currentReward.push(oldItem);
+              } else {
+                [p.inv[selectedRewardInvItem], currentReward[selectedRewardItem]] = [currentReward[selectedRewardItem], p.inv[selectedRewardInvItem]];
+              }
             }
           }
           if (keys.a && selectedRewardSection === "inv" && selectedRewardInvItem > 0) selectedRewardInvItem -= 1;
@@ -577,7 +600,7 @@
           }
           if (keys.space) {
             let item = selectedBaseInvSection === "base" ? baseInv[selectedBaseItem] : p.inv[selectedBaseItem];
-            if (selectedBaseInvSection === "inv" && totalCount(baseInv) < baseInvSize) {
+            if (selectedBaseInvSection === "inv" && totalCount(baseInv) < baseInvSize && item) {
               const count = totalCount(baseInv);
               if (count + item.count <= baseInvSize) {
                 baseInv.push(structuredClone(item));
@@ -585,8 +608,8 @@
               } else {
                 let temp = structuredClone(item);
                 let overflow = count + temp.count - baseInvSize;
-                item.count -= overflow;
-                temp.count = overflow;
+                item.count = overflow;
+                temp.count -= overflow;
                 baseInv.push(temp);
               }
             }
@@ -599,8 +622,8 @@
               } else {
                 let temp = structuredClone(item);
                 let overflow = count + temp.count - p.invSize;
-                item.count -= overflow;
-                temp.count = overflow;
+                item.count = overflow;
+                temp.count -= overflow;
                 p.inv.push(temp);
               }
             }
@@ -614,7 +637,7 @@
 
           if (keys.s && selectedBaseInvSection === "inv") {
             selectedBaseInvSection = "base";
-            selectedBaseItem = Math.min(baseInv.length - 1, selectedBaseItem);
+            selectedBaseItem = Math.min(p.inv.length - 1, selectedBaseItem);
           }
           if (keys.w && selectedBaseInvSection === "base") {
             selectedBaseInvSection = "inv";
@@ -661,14 +684,14 @@
             }
           }
           if (keys.s) {
-            if (selectedSection === "section" && selectedUpgradeSection < 4) {
+            if (selectedSection === "section" && selectedUpgradeSection < 5) {
               selectedUpgradeSection += 1;
               selectedUpgradeSectionType = 0;
               lastSelectionChangeTime = performance.now();
             }
             if (
               selectedSection === "types" &&
-              selectedUpgradeSectionType < [backpackTypes, foodTypes, waterTypes, healthTypes, weaponTypes][selectedUpgradeSection].length - 1
+              selectedUpgradeSectionType < [backpackTypes, foodTypes, waterTypes, healthTypes, weaponTypes, baseStorageTypes][selectedUpgradeSection].length - 1
             ) {
               selectedUpgradeSectionType += 1;
               lastSelectionChangeTime = performance.now();
@@ -696,6 +719,7 @@
           if (keys.enter && performance.now() - lastSelectionChangeTime > 100) {
             currentScreen = baseOptions[selectedBaseOption].name;
             lastMove = performance.now();
+            keys.enter = false;
             lastSelectionChangeTime = performance.now();
           }
           if (keys.escape && performance.now() - lastSelectionChangeTime > 100) {
@@ -703,7 +727,106 @@
             lastSelectionChangeTime = performance.now();
           }
         }
+        if (currentScreen === "enchant" && performance.now() - lastMove > 100) {
+          if (keys.escape) {
+            currentScreen = "base";
+            lastSelectionChangeTime = performance.now();
+          }
+          if (keys.w && meteorOreInvested < 15) {
+            meteorOreInvested += 1;
+            lastMove = performance.now();
+          }
+          if (keys.s && meteorOreInvested > 3) {
+            meteorOreInvested -= 1;
+            lastMove = performance.now();
+          }
+          if (keys.a && currentEnchantSectionSelected === "type" && enchantType > 0) {
+            enchantType -= 1;
+            lastMove = performance.now();
+          }
+          if (keys.a && currentEnchantSectionSelected === "level" && enchantLevel > 0) {
+            enchantLevel -= 1;
+            lastMove = performance.now();
+          }
+          if (keys.d && currentEnchantSectionSelected === "type" && enchantType < 2) {
+            lastMove = performance.now();
+            enchantType += 1;
+          }
+          if (keys.d && currentEnchantSectionSelected === "level" && enchantLevel < 3) {
+            lastMove = performance.now();
+            enchantLevel += 1;
+          }
+          if (keys.arrowup && currentEnchantSectionSelected === "level") {
+            currentEnchantSectionSelected = "type";
+            lastMove = performance.now();
+          }
+          if (keys.arrowdown && currentEnchantSectionSelected === "type") {
+            currentEnchantSectionSelected = "level";
+            lastMove = performance.now();
+          }
+          if (keys.enter) {
+            lastMove = performance.now();
+            keys.enter = false;
+            buyEnchantRoll();
+          }
+        }
       }
+
+      function oreIn(inv) {
+        return inv.filter((i) => i.name === "meteor ore").reduce((s, i) => s + i.count, 0);
+      }
+
+      function spendOre(amount) {
+        for (const inv of [p.inv, baseInv]) {
+          for (const item of inv) {
+            if (item.name !== "meteor ore") continue;
+            const take = Math.min(item.count, amount);
+            item.count -= take;
+            amount -= take;
+          }
+        }
+        p.inv = simplifyInv(p.inv);
+        baseInv = simplifyInv(baseInv);
+      }
+
+      function buyEnchantRoll() {
+        const level = rollEnchant(enchantType, meteorOreInvested);
+        const availableOre = oreIn(p.inv) + oreIn(baseInv);
+        p.inv = simplifyInv(p.inv);
+        baseInv = simplifyInv(baseInv);
+        if (availableOre < meteorOreInvested) {
+          alert("You don't have that much ore. You have " + availableOre + " meteor ore available.");
+          return;
+        }
+        spendOre(meteorOreInvested);
+        const type = ["protection", "damage", "lifesteal"][enchantType];
+        const current = currentEnchants[type];
+        if (level !== "none") {
+          if (current < enchantLevels[enchantType][level].effect) currentEnchants[type] = enchantLevels[enchantType][level].effect;
+          alert("You got a level " + (level + 1) + " enchant. If it was better than your current enchant, it has been automatically applied.");
+        } else {
+          alert("Unfortunately, you didn't roll an enchant.");
+        }
+      }
+
+      function rollEnchant(enchant, ore) {
+        const eItem = enchantLevels[enchant];
+        const e1 = eItem[0];
+        const c1 = Math.round(((e1.max - e1.raw) * ((ore - 3) / 12) + e1.raw) * 10) / 1000;
+        const e2 = eItem[1];
+        const c2 = Math.round(((e2.max - e2.raw) * ((ore - 3) / 12) + e2.raw) * 10) / 1000;
+        const e3 = eItem[2];
+        const c3 = Math.round(((e3.max - e3.raw) * ((ore - 3) / 12) + e3.raw) * 10) / 1000;
+        const e4 = eItem[3];
+        const c4 = Math.round(((e4.max - e4.raw) * ((ore - 3) / 12) + e4.raw) * 10) / 1000;
+
+        if (r() < c4) return 3;
+        if (r() < c3) return 2;
+        if (r() < c2) return 1;
+        if (r() < c1) return 0;
+        return "none";
+      }
+
       function totalCount(array = p.inv) {
         return array.reduce((sum, item) => sum + item.count, 0);
       }
@@ -720,6 +843,9 @@
               fakeInv[i].count -= resource.count;
               resources.splice(j, 1);
               break;
+            } else if (item.name === resource.name) {
+              resources[j].count -= item.count;
+              fakeInv[i].count = 0;
             }
           }
         }
@@ -731,6 +857,9 @@
               fakeBaseInv[i].count -= resource.count;
               resources.splice(j, 1);
               break;
+            } else if (item.name === resource.name) {
+              resources[j].count -= item.count;
+              fakeBaseInv[i].count = 0;
             }
           }
         }
@@ -773,7 +902,7 @@
           const item = inv[i];
           if (totals[item.name]) {
             totals[item.name] += item.count;
-          } else {
+          } else if (item.count > 0) {
             totals[item.name] = item.count;
           }
         }
@@ -816,8 +945,13 @@
       }
 
       function updateEnemyScreen() {
-        currentEnemy.health -= p.weapon.damage;
-        p.health -= currentEnemy.damage;
+        const damageMod = currentEnchants.damage === null ? 1 : currentEnchants.damage / 100 + 1;
+        const lifestealMod = currentEnchants.lifesteal === null ? 0 : currentEnchants.lifesteal / 100;
+        const lifestealEffect = lifestealMod * currentEnemy.health;
+        const protection = currentEnchants.protection === null ? 1 : 1 - currentEnchants.protection / 100;
+        currentEnemy.health -= p.weapon.damage * damageMod + lifestealEffect;
+        p.health -= currentEnemy.damage * protection;
+        p.health = Math.min(p.healthCapacity, p.health + lifestealEffect);
         if (p.health <= 0) {
           resetPlayer();
           return;
@@ -873,6 +1007,7 @@
       }
 
       function renderReward() {
+        if (currentReward.length === 0) currentScreen = "map";
         drawText(
           "Press [ENTER] to go back to the map, use [W][A][S][D] to rearrange your inventory to pick up wanted rewards, space to move items",
           canvas.width / 2,
@@ -915,7 +1050,7 @@
             50 * h + height * row + (height / 2) * row,
             "white",
             "center",
-            sw === 2 ? 20 : 60,
+            sw === 2 ? 20 : 30,
           );
         }
       }
@@ -1351,10 +1486,10 @@
         for (let i = 0; i < allOptions.length; i++) {
           let strokeWidth = 2;
           if (selectedUpgradeSection === i) strokeWidth *= 4;
-          const text = ["Storage capacity", "Food capacity", "Water capacity", "Health capacity", "Weapon upgrades"];
+          const text = ["Storage capacity", "Food capacity", "Water capacity", "Health capacity", "Weapon upgrades", "Base storage"];
 
-          drawRect(3 * w, h * 6 + 18 * h * i, 14 * w, 16 * h, "black", "white", strokeWidth);
-          drawText(text[i], (14 / 2) * w + 3 * w, 18 * h * i + 14 * h, "white", "center", strokeWidth === 2 ? 20 : 30);
+          drawRect(3 * w, h * 6 + 15 * h * i, 14 * w, 13 * h, "black", "white", strokeWidth);
+          drawText(text[i], (14 / 2) * w + 3 * w, 15 * h * i + 14 * h, "white", "center", strokeWidth === 2 ? 20 : 30);
         }
         const options = allOptions[selectedUpgradeSection];
         const distPerRect = 90 / options.length - 1;
@@ -1389,13 +1524,78 @@
         { display: "Upgrades", name: "upgrade" },
         { display: "Base Storage", name: "baseinv" },
         { display: "Enchantments", name: "enchant" },
-        { display: "Statistics", name: "stats" },
+        //{ display: "Statistics", name: "stats" },
       ];
       const h = canvas.height / 100;
       const w = canvas.width / 100;
 
       let selectedBaseInvSection = "inv";
       let selectedBaseItem = 0;
+
+      let enchantType = 0;
+      let enchantLevel = 0;
+      let meteorOreInvested = 3;
+      let currentEnchantSectionSelected = "type";
+
+      let currentEnchants = { protection: null, damage: null, lifesteal: null };
+      const enchantLevels = [
+        [
+          { effect: 10, raw: 70, max: 5 },
+          { effect: 15, raw: 25, max: 15 },
+          { effect: 25, raw: 4, max: 30 },
+          { effect: 35, raw: 1, max: 50 },
+        ],
+        [
+          { effect: 10, raw: 65, max: 10 },
+          { effect: 25, raw: 20, max: 20 },
+          { effect: 35, raw: 10, max: 25 },
+          { effect: 45, raw: 5, max: 45 },
+        ],
+        [
+          { effect: 3, raw: 70, max: 45 },
+          { effect: 6, raw: 25, max: 25 },
+          { effect: 10, raw: 4, max: 20 },
+          { effect: 14, raw: 1, max: 10 },
+        ],
+      ];
+
+      function renderEnchant() {
+        const types = ["Protection", "Damage", "Lifesteal"];
+        const descriptionTexts = ["Each enemy's hit does less damage.", "Your hits are more powerful.", "Each hit steals health from the enemy and heals you."];
+        const useTexts = ["Goes on your armor", "Goes on your weapon", "Goes on your weapon"];
+        const chanceText = "{MINCHANCE}% chance at 3 meteor ore, {MAXCHANCE}% at 15 meteor ore.";
+        const currentChanceText = "{CHANCE}% at {ORE} meteor ore invested, which is what you've currently invested.";
+
+        const levelTexts = ["Stops {X}% of all damage from hitting you.", "Does {X}% more damage", "Steals {X}% of the enemy's health and heals you that much."];
+        const levels = enchantLevels;
+        const min = 3;
+        const max = 15;
+        drawText(
+          "Use [A] and [D] to change options, [ARROW UP] and [ARROW DOWN] to change selected sections, [W] and [S] to change the invested meteor ore amount, [ENTER] to roll the enchant.",
+          50 * w,
+          3 * h,
+          "white",
+        );
+        for (let i = 0; i < 3; i++) {
+          const sw = enchantType === i ? 8 : 2;
+          drawRect(5 * w + 31 * w * i, 5 * h, 28 * w, 15 * h, "black", "white", sw);
+          drawText(types[i], 5 * w + (31 * w) / 2 + 31 * w * i, 10 * h, "white", "center", sw === 2 ? 20 : 30);
+          drawText(descriptionTexts[i], 5 * w + (31 * w) / 2 + 31 * w * i, 13 * h, "gray", "center", sw === 2 ? 15 : 25);
+          drawText(useTexts[i], 5 * w + (31 * w) / 2 + 31 * w * i, 16 * h, "gray", "center", sw === 2 ? 15 : 25);
+        }
+        for (let i = 0; i < 4; i++) {
+          const sw = enchantLevel === i ? 8 : 2;
+          drawRect(5 * w, 25 * h + 18 * h * i, 20 * w, 16 * h, "black", "white", sw);
+          drawText("Level " + (i + 1), 12.5 * w, 33 * h + 18 * h * i, "white", "center", sw === 2 ? 20 : 35);
+        }
+        const eTitem = levels[enchantType]; // the whole item
+        const eItem = levels[enchantType][enchantLevel]; // the current selected level
+
+        const currentChance = Math.round(((eItem.max - eItem.raw) * ((meteorOreInvested - 3) / 12) + eItem.raw) * 10) / 10;
+        drawText(levelTexts[enchantType].replace("{X}", levels[enchantType][enchantLevel].effect), (75 / 2) * w + 25 * w, 30 * h, "white");
+        drawText(chanceText.replace("{MINCHANCE}", eItem.raw).replace("{MAXCHANCE}", eItem.max), (75 / 2) * w + 25 * w, 35 * h, "white");
+        drawText(currentChanceText.replace("{CHANCE}", currentChance).replace("{ORE}", meteorOreInvested), (75 / 2) * w + 25 * w, 40 * h, "white");
+      }
 
       function renderBaseInv() {
         drawText(
@@ -1438,7 +1638,7 @@
             50 * h + height * row + (height / 2) * row,
             "white",
             "center",
-            sw === 2 ? 20 : 60,
+            sw === 2 ? 20 : 30,
           );
         }
       }
@@ -1453,6 +1653,7 @@
         if (currentScreen === "base") renderBase();
         if (currentScreen === "upgrade") renderUpgrade();
         if (currentScreen === "baseinv") renderBaseInv();
+        if (currentScreen === "enchant") renderEnchant();
       }
 
       function resetPlayer() {

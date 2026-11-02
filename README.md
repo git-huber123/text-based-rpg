@@ -17,6 +17,7 @@ Fog-of-war effect: you can only see the tiles that you've discovered, instead of
 Upgrades at the base: you'd be able to use an upgrade tree, doing things like upgrading your storage capacity, crafting weapons (which would dissapear on death), and other things.
 \\=> Note that the upgrades to your stats wouldn't disappear.
 Storage system: add a way to take important items and put them at the base, so if you die they're still at the base
+Enchantments: The name says it all - protection, lifesteal, and damage modifiers. Require meteor ore to roll for them, minimum of 3 to maximum of 15 ores.
 
 Work-in-progress:
 None right now, just finished the base inventory!
